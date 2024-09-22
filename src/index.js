@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import GUI from 'lil-gui';
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js"
 import {Ball} from "./Balls";
-import {BallColors, YELLOW_BALL_COLOR_INDEX} from "./utils/constants";
+import { YELLOW_BALL_COLOR_INDEX} from "./utils/constants";
 import Light from "./Light";
 import CANNON from 'cannon'
 import {randomImpulse, randomPosition3D} from "./random";
@@ -14,14 +14,14 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 window.document.body.appendChild(renderer.domElement);
 
-camera.position.set(0,7,42);
+camera.position.set(-15,12,38);
 // camera.lookAt(0,20,48);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 renderer.setClearColor(0xCB4B8B, 1);
 renderer.shadowMap.enabled = true;
-scene.fog = new THREE.Fog(0xCB4B8B, 10, 100);
+scene.fog = new THREE.Fog(0xCB4B8B, 0, 80);
 
 const light = new Light();
 scene.add(light.ambientLight);
@@ -47,8 +47,8 @@ const ball = new Ball(YELLOW_BALL_COLOR_INDEX, position);
 scene.add(ball.mesh)
 
 
-const axis = new THREE.AxesHelper(100);
-scene.add(axis);
+// const axis = new THREE.AxesHelper(100);
+// scene.add(axis);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 
@@ -88,24 +88,14 @@ const defaultContactMaterial = new CANNON.ContactMaterial(
 );
 world.defaultContactMaterial = defaultContactMaterial;
 
-const ballList = [];
-const addBall = () => {
-    const position = randomPosition3D(20);
-    const ball = new Ball(YELLOW_BALL_COLOR_INDEX, position);
-    const ballBody = new CANNON.Body({
-        mass: 1,
-        position: {x:position[0], y:position[1], z: position[2]},
-        shape: new CANNON.Sphere(2)
-    })
-    ballBody.applyLocalImpulse(
-        new CANNON.Vec3(3, -6, 0),
-        {x: 0, y: 0, z: 0},
-    )
-}
+let ballList = [];
 
 const initialBall = () => {
     Array.from({length: 10}).map(_ => {
-        const position = randomPosition3D(70);
+        const position = randomPosition3D(80);
+        position[0] -= 40;
+        position[1] += 40*0.27*1.3;
+        position[2] -= 20;
         const ball = new Ball(Math.round(Math.random()), position);
         scene.add(ball.mesh);
         const ballBody = new CANNON.Body({
@@ -114,7 +104,29 @@ const initialBall = () => {
             shape: new CANNON.Sphere(2)
         })
         ballBody.applyLocalImpulse(
-            new CANNON.Vec3(...randomImpulse()),
+            new CANNON.Vec3(...randomImpulse(10)),
+            {x: 0, y: 0, z: 0},
+        )
+        world.addBody(ballBody);
+        ballList.push({
+            mesh: ball.mesh,
+            body: ballBody,
+        })
+    })
+    Array.from({length: 10}).map(_ => {
+        const position = randomPosition3D(80);
+        // position[0] -= 40;
+        // position[1] += 40*0.27*1.3;
+        // position[2] -= 20;
+        const ball = new Ball(Math.round(Math.random()), position);
+        scene.add(ball.mesh);
+        const ballBody = new CANNON.Body({
+            mass: 1,
+            position: {x:position[0], y:position[1], z: position[2]},
+            shape: new CANNON.Sphere(2)
+        })
+        ballBody.applyLocalImpulse(
+            new CANNON.Vec3(...randomImpulse(10)),
             {x: 0, y: 0, z: 0},
         )
         world.addBody(ballBody);
@@ -126,11 +138,38 @@ const initialBall = () => {
 }
 
 initialBall();
+const offset = 70;
+const addBall = () => {
+    Array.from({length: 7}).map(_ => {
+        const position = randomPosition3D(80);
+        position[0] -= offset;
+        position[1] += offset*0.27*1.8;
+        position[2] -= offset;
+        const ball = new Ball(Math.round(Math.random()), position);
+        scene.add(ball.mesh);
+        const ballBody = new CANNON.Body({
+            mass: 1,
+            position: {x:position[0], y:position[1], z: position[2]},
+            shape: new CANNON.Sphere(2)
+        })
+        ballBody.applyLocalImpulse(
+            new CANNON.Vec3(...randomImpulse(5)),
+            {x: 0, y: 0, z: 0},
+        )
+        world.addBody(ballBody);
+        ballList.push({
+            mesh: ball.mesh,
+            body: ballBody,
+        })
+    })
+}
 
-// setInterval(() => {
-//     console.log(camera.position);
-//     console.log(orbitControls.target);
-// }, 3000)
+setInterval(addBall, 1000)
+
+setInterval(() => {
+    console.log(camera.position);
+    console.log(orbitControls.target);
+}, 3000)
 
 let oldElapsedTime = 0;
 const clock = new THREE.Clock();
@@ -145,6 +184,14 @@ const update = () => {
 
     ball.mesh.position.copy(ballBody.position);
     ball.mesh.quaternion.copy(ballBody.quaternion);
+    ballList = ballList.filter(({mesh, body}) => {
+        if(mesh.position.x > 100 || mesh.position.z > 100) {
+            scene.remove(mesh);
+            world.removeBody(body);
+            return false;
+        }
+        return true;
+    })
     ballList.forEach(({mesh, body}) => {
         mesh.position.copy(body.position);
         mesh.quaternion.copy(body.quaternion);
